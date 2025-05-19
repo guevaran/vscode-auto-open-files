@@ -1,0 +1,77 @@
+{
+  "name": "auto-open-files",
+  "displayName": "Auto Open Files",
+  "description": "Automatically open related files based on configurable patterns",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Auto Open Files",
+      "properties": {
+        "autoOpenFiles.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable auto-opening related files"
+        },
+        "autoOpenFiles.rules": {
+          "type": "array",
+          "default": [
+            {
+              "triggerPattern": "(.+)\\.html$",
+              "openPattern": "$1.js",
+              "viewColumn": "beside"
+            }
+          ],
+          "description": "Rules for automatically opening related files",
+          "items": {
+            "type": "object",
+            "properties": {
+              "triggerPattern": {
+                "type": "string",
+                "description": "Regular expression pattern to match the opened file. Use capture groups for replacements."
+              },
+              "openPattern": {
+                "type": "string",
+                "description": "Pattern for the file to open. Use $1, $2, etc. to reference capture groups."
+              },
+              "viewColumn": {
+                "type": "string",
+                "enum": [
+                  "beside",
+                  "active",
+                  "below"
+                ],
+                "default": "beside",
+                "description": "Where to open the related file"
+              }
+            },
+            "required": [
+              "triggerPattern",
+              "openPattern"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.7",
+    "@types/vscode": "^1.100.0",
+    "typescript": "^4.9.4"
+  }
+}
