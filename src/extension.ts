@@ -31,6 +31,8 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Check for files in processedFiles that are no longer open in the workspace
         const openFiles = new Set(vscode.workspace.textDocuments.map(doc => doc.uri.fsPath));
+        logDebug(`Currently open files: ${Array.from(openFiles).join(', ')}`);
+        logDebug(`Processed files: ${Array.from(processedFiles).join(', ')}`);
         const filesToRemove: string[] = [];
         
         processedFiles.forEach(filePath => {
@@ -250,6 +252,23 @@ async function handleFileOpen(document: vscode.TextDocument, rules: Rule[]) {
                     ? currentColumn - 1 
                     : vscode.ViewColumn.One;
                 logDebug(`Using beside-left view column: ${viewColumn}`);
+                
+                if (currentColumn === vscode.ViewColumn.One) {
+                    try {
+                        // Find the text editor with the current file and close it
+                        const editorsToClose = vscode.window.visibleTextEditors.filter(
+                            editor => editor.document.uri.fsPath === filePath
+                        );
+                        
+                        if (editorsToClose.length > 0) {
+                            // Close the current file using the close command
+                            await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+                            log(`Closed current file: ${filePath}`);
+                        }
+                    } catch (error) {
+                        logError(`Failed to close current file: ${filePath}`, error);
+                    }
+                }
                 break;
             case 'beside':
                 viewColumn = vscode.ViewColumn.Beside;
