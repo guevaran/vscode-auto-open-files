@@ -50,7 +50,7 @@ function activate(context) {
         };
         logDebug(`Editor group info: active=${editorGroupInfo.activeGroupIndex}, count=${editorGroupInfo.editorCount}, all=[${editorGroupInfo.allGroups.join(',')}]`);
         // Process the file with rules
-        await handleFileOpen(editor.document, rules, editorGroupInfo);
+        await handleFileOpen(editor.document, rules);
     });
     context.subscriptions.push(disposable);
     // Add a command to manually reset processed files cache
@@ -149,7 +149,7 @@ async function fileExists(filePath) {
         return false;
     }
 }
-async function handleFileOpen(document, rules, editorInfo) {
+async function handleFileOpen(document, rules) {
     const filePath = document.uri.fsPath;
     const fileName = path.basename(filePath);
     const dirPath = path.dirname(filePath);
@@ -187,83 +187,45 @@ async function handleFileOpen(document, rules, editorInfo) {
             log(`Target file is the same as source file, skipping: ${targetFilePath}`);
             continue;
         }
-        // Determine the view column and focus behavior based on the current editor setup
+        // Determine the view column
         const activeEditor = vscode.window.activeTextEditor;
         logDebug(`Active editor: ${activeEditor ? activeEditor.document.uri.fsPath : 'none'}`);
-        // Default values
+        // Ensure currentColumn has a default value (ViewColumn.One) when undefined
+        const currentColumn = activeEditor?.viewColumn ?? vscode.ViewColumn.One;
+        logDebug(`Current view column: ${currentColumn}`);
         let viewColumn;
-        let preserveFocus = true;
-        // Handle special case for HTML files when there are 2 editor groups
-        const isHtmlFile = fileName.endsWith('.html');
-        const isJsFile = fileName.endsWith('.js');
-        const hasTwoEditorGroups = editorInfo && editorInfo.editorCount >= 2;
-        if (isHtmlFile && hasTwoEditorGroups && rule.openPattern.endsWith('.js')) {
-            // If opening an HTML file in the second group, open JS in second group and focus first group
-            if (editorInfo?.activeGroupIndex === 2) {
-                logDebug(`Special case: HTML in group 2, opening JS in group 2, focusing group 1`);
-                viewColumn = vscode.ViewColumn.Two; // Keep JS file in group 2
-                // First find or open the original HTML file
-                const relatedDocument = await vscode.workspace.openTextDocument(targetFilePath);
-                await vscode.window.showTextDocument(relatedDocument, {
-                    viewColumn: viewColumn,
-                    preserveFocus: false // Don't preserve focus as we'll switch it later
-                });
-                // Then switch focus to group 1
-                if (vscode.window.visibleTextEditors.length > 0) {
-                    const firstGroupEditor = vscode.window.visibleTextEditors.find(e => e.viewColumn === vscode.ViewColumn.One);
-                    if (firstGroupEditor) {
-                        await vscode.window.showTextDocument(firstGroupEditor.document, {
-                            viewColumn: vscode.ViewColumn.One,
-                            preserveFocus: false
-                        });
-                        log(`Switched focus to group 1`);
-                    }
-                }
-                // Skip the default document opening logic since we handled it specially
-                continue;
-            }
+        switch (rule.viewColumn) {
+            case 'beside-right':
+                viewColumn = currentColumn + 1;
+                logDebug(`Using beside-right view column: ${viewColumn}`);
+                break;
+            case 'beside-left':
+                viewColumn = currentColumn > vscode.ViewColumn.One
+                    ? currentColumn - 1
+                    : vscode.ViewColumn.One;
+                logDebug(`Using beside-left view column: ${viewColumn}`);
+                break;
+            case 'beside':
+                viewColumn = vscode.ViewColumn.Beside;
+                logDebug(`Using beside view column: ${viewColumn}`);
+                break;
+            case 'active':
+            default:
+                viewColumn = vscode.ViewColumn.Active;
+                logDebug(`Using active view column: ${viewColumn}`);
+                break;
         }
-        else {
-            // Apply standard view column logic for other cases
-            const currentColumn = activeEditor?.viewColumn ?? vscode.ViewColumn.One;
-            logDebug(`Current view column: ${currentColumn}`);
-            switch (rule.viewColumn) {
-                case 'beside-right':
-                    viewColumn = currentColumn + 1;
-                    logDebug(`Using beside-right view column: ${viewColumn}`);
-                    break;
-                case 'beside-left':
-                    viewColumn = currentColumn > vscode.ViewColumn.One
-                        ? currentColumn - 1
-                        : vscode.ViewColumn.One;
-                    logDebug(`Using beside-left view column: ${viewColumn}`);
-                    break;
-                case 'beside':
-                    viewColumn = vscode.ViewColumn.Beside;
-                    logDebug(`Using beside view column: ${viewColumn}`);
-                    break;
-                case 'active':
-                default:
-                    viewColumn = vscode.ViewColumn.Active;
-                    logDebug(`Using active view column: ${viewColumn}`);
-                    break;
-            }
-        }
-        // Standard file opening logic for most cases
+        // Open the related file with preserveFocus:true to keep focus on original file
         try {
-            const relatedDocument = await vscode.workspace.openTextDocument(targetFilePath);
-            await vscode.window.showTextDocument(relatedDocument, {
+            const document = await vscode.workspace.openTextDocument(targetFilePath);
+            await vscode.window.showTextDocument(document, {
                 viewColumn: viewColumn,
-                preserveFocus: preserveFocus
+                preserveFocus: true // Key change: don't steal focus
             });
-            log(`Opened file: ${targetFilePath} in view column: ${viewColumn}`);
         }
         catch (error) {
             logError(`Failed to open file: ${targetFilePath}`, error);
         }
-    }
-    if (!matchedAnyRule) {
-        log(`No matching rules found for file: ${fileName}`);
     }
 }
 function deactivate() { }
