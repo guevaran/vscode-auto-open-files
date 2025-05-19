@@ -207,6 +207,7 @@ async function handleFileOpen(document: vscode.TextDocument, rules: Rule[], open
                 viewColumn = currentColumn + 1;
                 logDebug(`Using beside-right view column: ${viewColumn}`);
 
+                // Check if the next column exceeds maxTab, if yes, close the current file so it can be reopened by the opposite rule
                 if (rule.hasOppositeRule && currentColumn === maxTab) {
                     await closeCurrentFile(filePath);
                 }
@@ -217,6 +218,7 @@ async function handleFileOpen(document: vscode.TextDocument, rules: Rule[], open
                     : vscode.ViewColumn.One;
                 logDebug(`Using beside-left view column: ${viewColumn}`);
                 
+                // Check if the previous column is the first one, if yes, close the current file so it can be reopened by the opposite rule
                 if (rule.hasOppositeRule && currentColumn === vscode.ViewColumn.One) {
                     await closeCurrentFile(filePath);
                 }
