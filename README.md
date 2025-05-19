@@ -30,7 +30,7 @@ Customize the extension in VS Code settings:
     // Pattern for the file to open, using capture groups from triggerPattern
     "openPattern": "$1.js",
     
-    // Where to open the related file: "beside", "active", or "below"
+    // Where to open the related file: "beside", "beside-left", "beside-right", "active", or "below"
     "viewColumn": "beside"
   },
   {
@@ -46,7 +46,11 @@ Customize the extension in VS Code settings:
 
 - `triggerPattern`: Regular expression pattern with capture groups to match the opened file
 - `openPattern`: Pattern for the file to open, using `$1`, `$2`, etc. to reference capture groups
-- `viewColumn`: Where to open the related file ("beside", "active", or "below")
+- `viewColumn`: Where to open the related file:
+  - `"beside"`: Opens to the side (typically to the right)
+  - `"beside-left"`: Forces opening to the left of the current editor
+  - `"beside-right"`: Forces opening to the right of the current editor
+  - `"active"`: Opens in the current editor group
 
 ## Examples
 

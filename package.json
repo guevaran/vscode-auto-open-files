@@ -47,8 +47,9 @@
                 "type": "string",
                 "enum": [
                   "beside",
-                  "active",
-                  "below"
+                  "beside-left",
+                  "beside-right",
+                  "active"
                 ],
                 "default": "beside",
                 "description": "Where to open the related file"
