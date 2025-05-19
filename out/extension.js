@@ -78,10 +78,16 @@ function activate(context) {
         log(`Document opened: ${filePath}`);
         // Allow re-triggering after a delay to handle bidirectional rules
         setTimeout(() => {
-            const isJsFile = filePath.endsWith('.js');
-            const isHtmlFile = filePath.endsWith('.html');
-            // Only for JS and HTML files for now (can expand later)
-            if (isJsFile || isHtmlFile) {
+            // Get the current rules
+            const config = vscode.workspace.getConfiguration('autoOpenFiles');
+            const rules = config.get('rules', []);
+            // Check if this file matches any rule pattern
+            const fileName = path.basename(filePath);
+            const matchesAnyRule = rules.some(rule => {
+                const regex = new RegExp(rule.triggerPattern);
+                return regex.test(fileName);
+            });
+            if (matchesAnyRule) {
                 log(`Removing ${filePath} from processed files to enable bidirectional support`);
                 processedFiles.delete(filePath);
             }
