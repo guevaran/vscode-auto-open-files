@@ -29,6 +29,24 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
+        // Check for files in processedFiles that are no longer open in the workspace
+        const openFiles = new Set(vscode.workspace.textDocuments.map(doc => doc.uri.fsPath));
+        const filesToRemove: string[] = [];
+        
+        processedFiles.forEach(filePath => {
+            if (!openFiles.has(filePath)) {
+                filesToRemove.push(filePath);
+            }
+        });
+        
+        if (filesToRemove.length > 0) {
+            filesToRemove.forEach(filePath => {
+                processedFiles.delete(filePath);
+                log(`Removed file no longer in workspace: ${filePath}`);
+            });
+            log(`Cleaned up ${filesToRemove.length} files from processedFiles that were no longer open`);
+        }
+
         const config = vscode.workspace.getConfiguration('autoOpenFiles');
         const enabled = config.get<boolean>('enabled', true);
         
@@ -94,32 +112,6 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
     
-    // Dynamically store related files to improve bidirectional rules
-    context.subscriptions.push(
-        vscode.workspace.onDidOpenTextDocument(document => {
-            const filePath = document.uri.fsPath;
-            log(`Document opened: ${filePath}`);
-            
-            // Allow re-triggering after a delay to handle bidirectional rules
-            setTimeout(() => {
-                // Get the current rules
-                const config = vscode.workspace.getConfiguration('autoOpenFiles');
-                const rules = config.get<Rule[]>('rules', []);
-                
-                // Check if this file matches any rule pattern
-                const fileName = path.basename(filePath);
-                const matchesAnyRule = rules.some(rule => {
-                    const regex = new RegExp(rule.triggerPattern);
-                    return regex.test(fileName);
-                });
-                
-                if (matchesAnyRule) {
-                    log(`Removing ${filePath} from processed files to enable bidirectional support`);
-                    processedFiles.delete(filePath);
-                }
-            }, 3000); // 3 second delay before allowing re-processing
-        })
-    );
     
     // Log the current state periodically (for debugging)
     if (DEBUG) {
@@ -272,11 +264,13 @@ async function handleFileOpen(document: vscode.TextDocument, rules: Rule[]) {
 
         // Open the related file with preserveFocus:true to keep focus on original file
         try {
-            const document = await vscode.workspace.openTextDocument(targetFilePath);
-            await vscode.window.showTextDocument(document, { 
+            const relatedDocument = await vscode.workspace.openTextDocument(targetFilePath);
+            await vscode.window.showTextDocument(relatedDocument, { 
                 viewColumn: viewColumn,
-                preserveFocus: true  // Key change: don't steal focus
+                preserveFocus: true,  // Keep focus on original file
+                preview: false        // Open as a permanent editor, not in preview mode
             });
+            log(`Successfully opened related file: ${targetFilePath}`);
         } catch (error) {
             logError(`Failed to open file: ${targetFilePath}`, error);
         }
