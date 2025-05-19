@@ -21,6 +21,9 @@ Customize the extension in VS Code settings:
 // Enable or disable the extension
 "autoOpenFiles.enabled": true,
 
+// Maximum number of tabs/columns to use (0 = unlimited)
+"autoOpenFiles.maxTab": 2,
+
 // Configure rules for auto-opening files
 "autoOpenFiles.rules": [
   {
@@ -30,7 +33,7 @@ Customize the extension in VS Code settings:
     // Pattern for the file to open, using capture groups from triggerPattern
     "openPattern": "$1.js",
     
-    // Where to open the related file: "beside", "beside-left", "beside-right", "active", or "below"
+    // Where to open the related file
     "viewColumn": "beside"
   },
   {
@@ -51,6 +54,7 @@ Customize the extension in VS Code settings:
   - `"beside-left"`: Forces opening to the left of the current editor
   - `"beside-right"`: Forces opening to the right of the current editor
   - `"active"`: Opens in the current editor group
+- `hasOppositeRule`: When true the extension will close the current file if it's in column 1. This is useful for bidirectional rules to prevent circular opening.
 
 ## Examples
 
@@ -78,6 +82,22 @@ Customize the extension in VS Code settings:
   "triggerPattern": "(.+)\\.h$",
   "openPattern": "$1.cpp",
   "viewColumn": "beside"
+}
+```
+
+4. Bidirectional rule for HTML and JS files:
+```json
+{
+  "triggerPattern": "(.+)\\.html$",
+  "openPattern": "$1.js",
+  "viewColumn": "beside-right",
+  "hasOppositeRule": true
+},
+{
+  "triggerPattern": "(.+)\\.js$",
+  "openPattern": "$1.html",
+  "viewColumn": "beside-left",
+  "hasOppositeRule": true
 }
 ```
 

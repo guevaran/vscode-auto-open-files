@@ -6,6 +6,7 @@ interface Rule {
     triggerPattern: string;
     openPattern: string;
     viewColumn: 'beside' | 'active' | 'beside-left' | 'beside-right';
+    hasOppositeRule?: boolean; // Optional property to indicate if there's a bidirectional rule
 }
 
 // Output channel for extension logging
@@ -35,6 +36,10 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
+        // Get the maxTab setting
+        const maxTab = config.get<number>('maxTab', 0);
+        logDebug(`Max tab setting: ${maxTab}`);
+
         const filePath = editor.document.uri.fsPath;
         log(`Active editor changed to: ${filePath}`);
         
@@ -57,7 +62,7 @@ export function activate(context: vscode.ExtensionContext) {
         logDebug(`Editor group info: active=${editorGroupInfo.activeGroupIndex}, count=${editorGroupInfo.editorCount}, all=[${editorGroupInfo.allGroups.join(',')}]`);
         
         // Process the file with rules
-        await handleFileOpen(editor.document, rules, openFiles);
+        await handleFileOpen(editor.document, rules, openFiles, maxTab);
     });
 
     context.subscriptions.push(disposable);
@@ -113,7 +118,24 @@ async function fileExists(filePath: string): Promise<boolean> {
     }
 }
 
-async function handleFileOpen(document: vscode.TextDocument, rules: Rule[], openFiles: Set<string>) {
+async function closeCurrentFile(filePath: string) {
+    try {
+        // Find the text editor with the current file and close it
+        const editorsToClose = vscode.window.visibleTextEditors.filter(
+            editor => editor.document.uri.fsPath === filePath
+        );
+        
+        if (editorsToClose.length > 0) {
+            // Close the current file using the close command
+            await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+            log(`Closed current file: ${filePath}`);
+        }
+    } catch (error) {
+        logError(`Failed to close current file: ${filePath}`, error);
+    }
+}
+
+async function handleFileOpen(document: vscode.TextDocument, rules: Rule[], openFiles: Set<string>, maxTab: number) {
     const filePath = document.uri.fsPath;
     const fileName = path.basename(filePath);
     const dirPath = path.dirname(filePath);
@@ -178,10 +200,16 @@ async function handleFileOpen(document: vscode.TextDocument, rules: Rule[], open
         
         let viewColumn: vscode.ViewColumn;
         
+        // Determine target view column based on rule and maxTab setting
         switch (rule.viewColumn) {
+            case 'beside':
             case 'beside-right':
                 viewColumn = currentColumn + 1;
                 logDebug(`Using beside-right view column: ${viewColumn}`);
+
+                if (rule.hasOppositeRule && currentColumn === maxTab) {
+                    await closeCurrentFile(filePath);
+                }
                 break;
             case 'beside-left':
                 viewColumn = currentColumn > vscode.ViewColumn.One 
@@ -189,32 +217,21 @@ async function handleFileOpen(document: vscode.TextDocument, rules: Rule[], open
                     : vscode.ViewColumn.One;
                 logDebug(`Using beside-left view column: ${viewColumn}`);
                 
-                if (currentColumn === vscode.ViewColumn.One) {
-                    try {
-                        // Find the text editor with the current file and close it
-                        const editorsToClose = vscode.window.visibleTextEditors.filter(
-                            editor => editor.document.uri.fsPath === filePath
-                        );
-                        
-                        if (editorsToClose.length > 0) {
-                            // Close the current file using the close command
-                            await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
-                            log(`Closed current file: ${filePath}`);
-                        }
-                    } catch (error) {
-                        logError(`Failed to close current file: ${filePath}`, error);
-                    }
+                if (rule.hasOppositeRule && currentColumn === vscode.ViewColumn.One) {
+                    await closeCurrentFile(filePath);
                 }
-                break;
-            case 'beside':
-                viewColumn = vscode.ViewColumn.Beside;
-                logDebug(`Using beside view column: ${viewColumn}`);
                 break;
             case 'active':
             default:
                 viewColumn = vscode.ViewColumn.Active;
                 logDebug(`Using active view column: ${viewColumn}`);
                 break;
+        }
+
+        // Check if the number of open editors exceeds maxTab
+        if (maxTab != 0 && viewColumn > maxTab) {
+            logDebug(`Max tab limit exceeded, adjusting view column to: ${maxTab}`);
+            viewColumn = vscode.ViewColumn.One + (maxTab - 1);
         }
 
         // Open the related file with preserveFocus:true to keep focus on original file

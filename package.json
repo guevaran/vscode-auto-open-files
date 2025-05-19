@@ -22,6 +22,11 @@
           "default": true,
           "description": "Enable or disable auto-opening related files"
         },
+        "autoOpenFiles.maxTab": {
+          "type": "number",
+          "default": 0,
+          "description": "Maximum number of tabs/columns to use (0 = unlimited)"
+        },
         "autoOpenFiles.rules": {
           "type": "array",
           "default": [
@@ -53,6 +58,11 @@
                 ],
                 "default": "beside",
                 "description": "Where to open the related file"
+              },
+              "hasOppositeRule": {
+                "type": "boolean",
+                "default": false,
+                "description": "When true will close the current file if in column 1"
               }
             },
             "required": [
