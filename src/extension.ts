@@ -8,8 +8,6 @@ interface Rule {
     viewColumn: 'beside' | 'active' | 'beside-left' | 'beside-right';
 }
 
-// Track which files have already been processed
-const processedFiles = new Set<string>();
 // Output channel for extension logging
 let outputChannel: vscode.OutputChannel;
 // Debug mode for verbose logging
@@ -29,26 +27,6 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
-        // Check for files in processedFiles that are no longer open in the workspace
-        const openFiles = new Set(vscode.workspace.textDocuments.map(doc => doc.uri.fsPath));
-        logDebug(`Currently open files: ${Array.from(openFiles).join(', ')}`);
-        logDebug(`Processed files: ${Array.from(processedFiles).join(', ')}`);
-        const filesToRemove: string[] = [];
-        
-        processedFiles.forEach(filePath => {
-            if (!openFiles.has(filePath)) {
-                filesToRemove.push(filePath);
-            }
-        });
-        
-        if (filesToRemove.length > 0) {
-            filesToRemove.forEach(filePath => {
-                processedFiles.delete(filePath);
-                log(`Removed file no longer in workspace: ${filePath}`);
-            });
-            log(`Cleaned up ${filesToRemove.length} files from processedFiles that were no longer open`);
-        }
-
         const config = vscode.workspace.getConfiguration('autoOpenFiles');
         const enabled = config.get<boolean>('enabled', true);
         
@@ -60,21 +38,15 @@ export function activate(context: vscode.ExtensionContext) {
         const filePath = editor.document.uri.fsPath;
         log(`Active editor changed to: ${filePath}`);
         
-        // Skip if we've already processed this file
-        if (processedFiles.has(filePath)) {
-            log(`File already processed, skipping: ${filePath}`);
-            return;
-        }
+        // Get list of actually visible files (not just loaded documents)
+        const openFiles = new Set(
+            vscode.window.visibleTextEditors.map(editor => editor.document.uri.fsPath)
+        );
+        logDebug(`Currently visible editors: ${Array.from(openFiles).join(', ')}`);
         
-        // Mark this file as processed
-        processedFiles.add(filePath);
-        log(`Processing file: ${filePath}`);
-        
+        // Get the related file path from rules
         const rules = config.get<Rule[]>('rules', []);
         logDebug(`Found ${rules.length} rules in configuration`);
-        rules.forEach((rule, index) => {
-            logDebug(`Rule #${index + 1}: "${rule.triggerPattern}" -> "${rule.openPattern}" (${rule.viewColumn})`);
-        });
         
         // Get info about editor groups before processing
         const editorGroupInfo = {
@@ -85,58 +57,16 @@ export function activate(context: vscode.ExtensionContext) {
         logDebug(`Editor group info: active=${editorGroupInfo.activeGroupIndex}, count=${editorGroupInfo.editorCount}, all=[${editorGroupInfo.allGroups.join(',')}]`);
         
         // Process the file with rules
-        await handleFileOpen(editor.document, rules);
+        await handleFileOpen(editor.document, rules, openFiles);
     });
 
     context.subscriptions.push(disposable);
-    
-    // Add a command to manually reset processed files cache
-    const resetCommand = vscode.commands.registerCommand('autoOpenFiles.resetCache', () => {
-        processedFiles.clear();
-        log('Cache cleared - all files will be processed again on next open');
-    });
-    context.subscriptions.push(resetCommand);
     
     // Add a command to show the output channel
     const showLogsCommand = vscode.commands.registerCommand('autoOpenFiles.showLogs', () => {
         outputChannel.show();
     });
     context.subscriptions.push(showLogsCommand);
-    
-    // Clear processed files when a file is closed
-    context.subscriptions.push(
-        vscode.workspace.onDidCloseTextDocument(document => {
-            const filePath = document.uri.fsPath;
-            if (processedFiles.has(filePath)) {
-                processedFiles.delete(filePath);
-                log(`Removed from processed files: ${filePath}`);
-            }
-        })
-    );
-    
-    
-    // Log the current state periodically (for debugging)
-    if (DEBUG) {
-        // Add debouncing to prevent excessive logging
-        let debounceTimer: NodeJS.Timeout | undefined;
-        
-        context.subscriptions.push(
-            vscode.workspace.onDidChangeTextDocument(() => {
-                // Clear any existing timer
-                if (debounceTimer) {
-                    clearTimeout(debounceTimer);
-                }
-                
-                // Set a new timer with delay
-                debounceTimer = setTimeout(() => {
-                    logDebug(`Currently processed files (${processedFiles.size}):`);
-                    Array.from(processedFiles).forEach(file => {
-                        logDebug(`  - ${file}`);
-                    });
-                }, 2000); // 2 second delay
-            })
-        );
-    }
 }
 
 // Helper function for logging to output channel
@@ -183,7 +113,7 @@ async function fileExists(filePath: string): Promise<boolean> {
     }
 }
 
-async function handleFileOpen(document: vscode.TextDocument, rules: Rule[]) {
+async function handleFileOpen(document: vscode.TextDocument, rules: Rule[], openFiles: Set<string>) {
     const filePath = document.uri.fsPath;
     const fileName = path.basename(filePath);
     const dirPath = path.dirname(filePath);
@@ -229,6 +159,12 @@ async function handleFileOpen(document: vscode.TextDocument, rules: Rule[]) {
         // Don't open if it's the same file
         if (targetFilePath === filePath) {
             log(`Target file is the same as source file, skipping: ${targetFilePath}`);
+            continue;
+        }
+        
+        // Check if target file is already open
+        if (openFiles.has(targetFilePath)) {
+            log(`Target file is already open: ${targetFilePath}`);
             continue;
         }
 
