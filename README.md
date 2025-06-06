@@ -4,10 +4,10 @@ A Visual Studio Code extension that automatically opens related files when you o
 
 ## Features
 
-- Automatically open related files when you open a matching file
-- Configurable rules using regular expression patterns
-- Control where the related files open (side-by-side, etc.)
-- Easily enable or disable the functionality
+-   Automatically open related files when you open a matching file
+-   Configurable rules using regular expression patterns
+-   Control where the related files open (side-by-side, etc.)
+-   Easily enable or disable the functionality
 
 ## Usage
 
@@ -29,10 +29,10 @@ Customize the extension in VS Code settings:
   {
     // Regular expression pattern for the file that triggers auto-opening
     "triggerPattern": "(.+)\\.html$",
-    
+
     // Pattern for the file to open, using capture groups from triggerPattern
     "openPattern": "$1.js",
-    
+
     // Where to open the related file
     "viewColumn": "beside"
   },
@@ -47,45 +47,50 @@ Customize the extension in VS Code settings:
 
 ### Rule Properties
 
-- `triggerPattern`: Regular expression pattern with capture groups to match the opened file
-- `openPattern`: Pattern for the file to open, using `$1`, `$2`, etc. to reference capture groups
-- `viewColumn`: Where to open the related file:
-  - `"beside"`: Opens to the side (typically to the right)
-  - `"beside-left"`: Forces opening to the left of the current editor
-  - `"beside-right"`: Forces opening to the right of the current editor
-  - `"active"`: Opens in the current editor group
-- `hasOppositeRule`: When true the extension will close the current file if it's in column 1. This is useful for bidirectional rules to prevent circular opening.
+-   `triggerPattern`: Regular expression pattern with capture groups to match the opened file
+-   `openPattern`: Pattern for the file to open, using `$1`, `$2`, etc. to reference capture groups
+-   `viewColumn`: Where to open the related file:
+    -   `"beside"`: Opens to the side (typically to the right)
+    -   `"beside-left"`: Forces opening to the left of the current editor
+    -   `"beside-right"`: Forces opening to the right of the current editor
+    -   `"active"`: Opens in the current editor group
+-   `hasOppositeRule`: Indicate if there is an opposite rule. This is needed for bidirectional rules.
+-   `onlyIfMultipleTabs`: When true, the file will only be opened if there are already multiple tabs open.
 
 ## Examples
 
 1. Open TypeScript file when opening HTML file:
+
 ```json
 {
-  "triggerPattern": "(.+)\\.html$",
-  "openPattern": "$1.ts",
-  "viewColumn": "beside"
+	"triggerPattern": "(.+)\\.html$",
+	"openPattern": "$1.ts",
+	"viewColumn": "beside"
 }
 ```
 
 2. Open CSS file when opening React component:
+
 ```json
 {
-  "triggerPattern": "(.+)\\.jsx$",
-  "openPattern": "$1.css",
-  "viewColumn": "beside"
+	"triggerPattern": "(.+)\\.jsx$",
+	"openPattern": "$1.css",
+	"viewColumn": "beside"
 }
 ```
 
 3. Open implementation file when opening header:
+
 ```json
 {
-  "triggerPattern": "(.+)\\.h$",
-  "openPattern": "$1.cpp",
-  "viewColumn": "beside"
+	"triggerPattern": "(.+)\\.h$",
+	"openPattern": "$1.cpp",
+	"viewColumn": "beside"
 }
 ```
 
 4. Bidirectional rule for HTML and JS files:
+
 ```json
 {
   "triggerPattern": "(.+)\\.html$",
@@ -98,6 +103,48 @@ Customize the extension in VS Code settings:
   "openPattern": "$1.html",
   "viewColumn": "beside-left",
   "hasOppositeRule": true
+}
+```
+
+5. Open JavaScript file when HTML file is opened only if multiple tabs/columns are already open:
+
+```json
+{
+	"triggerPattern": "(.+)\\.html$",
+	"openPattern": "$1.js",
+	"viewColumn": "beside",
+	"onlyIfMultipleTabs": true
+}
+```
+
+6. Complete configuration example with bidirectional rules and multiple tabs condition:
+
+```json
+{
+	"autoOpenFiles.enabled": true,
+	"autoOpenFiles.maxTab": 2,
+	"autoOpenFiles.rules": [
+		{
+			"triggerPattern": "(.+)\\.html$",
+			"openPattern": "$1.js",
+			"viewColumn": "beside-right",
+			"hasOppositeRule": true,
+			"onlyIfMultipleTabs": true
+		},
+		{
+			"triggerPattern": "(.+)\\.js$",
+			"openPattern": "$1.html",
+			"viewColumn": "beside-left",
+			"hasOppositeRule": true,
+			"onlyIfMultipleTabs": true
+		},
+		{
+			"triggerPattern": "(.+)Test\\.cls$",
+			"openPattern": "$1.cls",
+			"viewColumn": "beside-left",
+			"onlyIfMultipleTabs": true
+		}
+	]
 }
 ```
 

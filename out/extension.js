@@ -7,7 +7,7 @@ const fs_1 = require("fs");
 // Output channel for extension logging
 let outputChannel;
 // Debug mode for verbose logging
-const DEBUG = true;
+const DEBUG = false;
 function activate(context) {
     // Initialize output channel
     outputChannel = vscode.window.createOutputChannel('Auto Open Files');
@@ -31,20 +31,13 @@ function activate(context) {
         const filePath = editor.document.uri.fsPath;
         log(`Active editor changed to: ${filePath}`);
         // Get list of actually visible files (not just loaded documents)
-        const openFiles = new Set(vscode.window.visibleTextEditors.map(editor => editor.document.uri.fsPath));
-        logDebug(`Currently visible editors: ${Array.from(openFiles).join(', ')}`);
+        const openedVisibleFiles = new Set(vscode.window.visibleTextEditors.map((editor) => editor.document.uri.fsPath));
+        log(`Currently visible editors: \n${Array.from(openedVisibleFiles).join(', \n')}`);
         // Get the related file path from rules
         const rules = config.get('rules', []);
         logDebug(`Found ${rules.length} rules in configuration`);
-        // Get info about editor groups before processing
-        const editorGroupInfo = {
-            activeGroupIndex: vscode.window.activeTextEditor?.viewColumn || vscode.ViewColumn.One,
-            allGroups: vscode.window.visibleTextEditors.map(e => e.viewColumn),
-            editorCount: vscode.window.visibleTextEditors.length
-        };
-        logDebug(`Editor group info: active=${editorGroupInfo.activeGroupIndex}, count=${editorGroupInfo.editorCount}, all=[${editorGroupInfo.allGroups.join(',')}]`);
         // Process the file with rules
-        await handleFileOpen(editor.document, rules, openFiles, maxTab);
+        await handleFileOpen(editor.document, rules, openedVisibleFiles, maxTab);
     });
     context.subscriptions.push(disposable);
     // Add a command to show the output channel
@@ -99,18 +92,33 @@ async function fileExists(filePath) {
 async function closeCurrentFile(filePath) {
     try {
         // Find the text editor with the current file and close it
-        const editorsToClose = vscode.window.visibleTextEditors.filter(editor => editor.document.uri.fsPath === filePath);
+        const editorsToClose = vscode.window.visibleTextEditors.filter((editor) => editor.document.uri.fsPath === filePath);
         if (editorsToClose.length > 0) {
             // Close the current file using the close command
             await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
-            log(`Closed current file: ${filePath}`);
+            log(`Successfully close file: ${filePath} from current editor`);
         }
     }
     catch (error) {
         logError(`Failed to close current file: ${filePath}`, error);
     }
 }
-async function handleFileOpen(document, rules, openFiles, maxTab) {
+async function openFile(filePath, viewColumn) {
+    // Open the related file with preserveFocus:true to keep focus on original file
+    try {
+        const relatedDocument = await vscode.workspace.openTextDocument(filePath);
+        await vscode.window.showTextDocument(relatedDocument, {
+            viewColumn: viewColumn,
+            preserveFocus: true,
+            preview: false, // Open as a permanent editor, not in preview mode
+        });
+        log(`Successfully open file: ${filePath} in column ${viewColumn}`);
+    }
+    catch (error) {
+        logError(`Failed to open file: ${filePath}`, error);
+    }
+}
+async function handleFileOpen(document, rules, openedVisibleFiles, maxTab) {
     const filePath = document.uri.fsPath;
     const fileName = path.basename(filePath);
     const dirPath = path.dirname(filePath);
@@ -139,7 +147,7 @@ async function handleFileOpen(document, rules, openFiles, maxTab) {
         const targetFilePath = path.join(dirPath, targetFileName);
         logDebug(`Target file path: ${targetFilePath}`);
         // Check if target file exists (asynchronously)
-        if (!await fileExists(targetFilePath)) {
+        if (!(await fileExists(targetFilePath))) {
             log(`Target file does not exist: ${targetFilePath}`);
             continue;
         }
@@ -148,10 +156,34 @@ async function handleFileOpen(document, rules, openFiles, maxTab) {
             log(`Target file is the same as source file, skipping: ${targetFilePath}`);
             continue;
         }
-        // Check if target file is already open
-        if (openFiles.has(targetFilePath)) {
-            log(`Target file is already open: ${targetFilePath}`);
-            continue;
+        // For 'active' viewColumn, check if file is already opened (not just visible)
+        if (rule.viewColumn === 'active') {
+            // Check all opened documents, not just visible ones
+            const isAlreadyOpened = vscode.workspace.textDocuments.some((doc) => doc.uri.fsPath === targetFilePath);
+            if (isAlreadyOpened) {
+                log(`Target file is already opened (for active view column), skipping: ${targetFilePath}`);
+                continue;
+            }
+        }
+        else {
+            // For other viewColumns, only check if it's already visible
+            if (openedVisibleFiles.has(targetFilePath)) {
+                log(`Target file is already open and visible, skipping: ${targetFilePath}`);
+                continue;
+            }
+        }
+        // Check if we should only open when multiple view columns exist
+        if (rule.onlyIfMultipleTabs) {
+            // Get unique view columns by creating a Set from the visible editors' view columns
+            // Filter out undefined and null values before adding to the Set
+            const uniqueViewColumns = new Set(vscode.window.visibleTextEditors
+                .map((editor) => editor.viewColumn)
+                .filter((column) => column !== undefined && column !== null));
+            logDebug(`Unique view columns: ${Array.from(uniqueViewColumns).join(', ')}`);
+            if (uniqueViewColumns.size <= 1) {
+                log(`Rule requires multiple view columns, but only ${uniqueViewColumns.size} column(s) open. Skipping.`);
+                continue;
+            }
         }
         // Determine the view column
         const activeEditor = vscode.window.activeTextEditor;
@@ -159,51 +191,69 @@ async function handleFileOpen(document, rules, openFiles, maxTab) {
         // Ensure currentColumn has a default value (ViewColumn.One) when undefined
         const currentColumn = activeEditor?.viewColumn ?? vscode.ViewColumn.One;
         logDebug(`Current view column: ${currentColumn}`);
-        let viewColumn;
+        let targetColumn;
+        let targetColumnForCurrentFile = currentColumn;
+        let doCloseCurrentFile = false;
         // Determine target view column based on rule and maxTab setting
         switch (rule.viewColumn) {
             case 'beside':
             case 'beside-right':
-                viewColumn = currentColumn + 1;
-                logDebug(`Using beside-right view column: ${viewColumn}`);
-                // Check if the next column exceeds maxTab, if yes, close the current file so it can be reopened by the opposite rule
-                if (rule.hasOppositeRule && currentColumn === maxTab) {
-                    await closeCurrentFile(filePath);
+                targetColumn = currentColumn + 1;
+                logDebug(`Using beside-right view column: ${targetColumn}`);
+                // Check if the next column exceeds maxTab
+                if (currentColumn === maxTab) {
+                    if (rule.hasOppositeRule) {
+                        // Close the current file so it can be reopened by the opposite rule
+                        doCloseCurrentFile = true;
+                    }
+                    else {
+                        // Close the current file to reopen it in another column
+                        doCloseCurrentFile = true;
+                        targetColumnForCurrentFile = currentColumn - 1;
+                    }
                 }
                 break;
             case 'beside-left':
-                viewColumn = currentColumn > vscode.ViewColumn.One
-                    ? currentColumn - 1
-                    : vscode.ViewColumn.One;
-                logDebug(`Using beside-left view column: ${viewColumn}`);
-                // Check if the previous column is the first one, if yes, close the current file so it can be reopened by the opposite rule
-                if (rule.hasOppositeRule && currentColumn === vscode.ViewColumn.One) {
-                    await closeCurrentFile(filePath);
+                targetColumn =
+                    currentColumn > vscode.ViewColumn.One
+                        ? currentColumn - 1
+                        : vscode.ViewColumn.One;
+                logDebug(`Using beside-left view column: ${targetColumn}`);
+                // Check if the previous column is the first one
+                if (currentColumn === vscode.ViewColumn.One) {
+                    if (rule.hasOppositeRule) {
+                        // Close the current file so it can be reopened by the opposite rule
+                        doCloseCurrentFile = true;
+                    }
+                    else {
+                        // Close the current file to reopen it in another column
+                        doCloseCurrentFile = true;
+                        targetColumnForCurrentFile = currentColumn + 1;
+                    }
                 }
                 break;
             case 'active':
             default:
-                viewColumn = vscode.ViewColumn.Active;
-                logDebug(`Using active view column: ${viewColumn}`);
+                targetColumn = vscode.ViewColumn.Active;
+                logDebug(`Using active view column: ${targetColumn}`);
                 break;
         }
         // Check if the number of open editors exceeds maxTab
-        if (maxTab != 0 && viewColumn > maxTab) {
+        if (maxTab != 0 && targetColumn > maxTab) {
             logDebug(`Max tab limit exceeded, adjusting view column to: ${maxTab}`);
-            viewColumn = vscode.ViewColumn.One + (maxTab - 1);
+            targetColumn = vscode.ViewColumn.One + (maxTab - 1);
         }
-        // Open the related file with preserveFocus:true to keep focus on original file
-        try {
-            const relatedDocument = await vscode.workspace.openTextDocument(targetFilePath);
-            await vscode.window.showTextDocument(relatedDocument, {
-                viewColumn: viewColumn,
-                preserveFocus: true,
-                preview: false // Open as a permanent editor, not in preview mode
-            });
-            log(`Successfully opened related file: ${targetFilePath}`);
+        if (doCloseCurrentFile) {
+            // Close the current file before opening the new one
+            await closeCurrentFile(filePath);
         }
-        catch (error) {
-            logError(`Failed to open file: ${targetFilePath}`, error);
+        if (doCloseCurrentFile && !rule.hasOppositeRule) {
+            log('Reopening current file in the new column');
+            await openFile(filePath, targetColumnForCurrentFile);
+        }
+        else {
+            log(`Opening target file: ${targetFilePath} in column ${targetColumn}`);
+            await openFile(targetFilePath, targetColumn);
         }
     }
 }
