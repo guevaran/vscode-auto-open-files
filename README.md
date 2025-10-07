@@ -198,14 +198,6 @@ Customize the extension in VS Code settings:
 | Open settings JSON | Preferences: Open Settings (JSON) |
 | Reload window | Developer: Reload Window |
 
-### Quick Test Configuration Snippet
-
-```json
-"autoOpenFiles.rules": [
-  { "triggerPattern": "(.+)\\.html$", "openPattern": "$1.js", "viewColumn": "beside" }
-]
-```
-
 ## License
 
 MIT

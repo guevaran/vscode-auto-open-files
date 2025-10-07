@@ -22,7 +22,6 @@ pnpm-debug.log*
 Thumbs.db
 
 # IDE / tooling
-.vscode/
 *.code-workspace
 
 # TypeScript sources (if publishing only compiled)
