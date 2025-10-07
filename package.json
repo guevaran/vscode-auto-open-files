@@ -3,8 +3,12 @@
 	"displayName": "Auto Open Files",
 	"description": "Automatically open related files based on configurable patterns",
 	"version": "0.1.0",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/guevaran/vscode-auto-open-files.git"
+	},
 	"engines": {
-		"vscode": "^1.60.0"
+		"vscode": "^1.100.0"
 	},
 	"categories": [
 		"Other"

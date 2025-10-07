@@ -61,91 +61,149 @@ Customize the extension in VS Code settings:
 
 1. Open TypeScript file when opening HTML file:
 
-```json
-{
-	"triggerPattern": "(.+)\\.html$",
-	"openPattern": "$1.ts",
-	"viewColumn": "beside"
-}
-```
+    ```json
+    {
+    	"triggerPattern": "(.+)\\.html$",
+    	"openPattern": "$1.ts",
+    	"viewColumn": "beside"
+    }
+    ```
 
 2. Open CSS file when opening React component:
 
-```json
-{
-	"triggerPattern": "(.+)\\.jsx$",
-	"openPattern": "$1.css",
-	"viewColumn": "beside"
-}
-```
+    ```json
+    {
+    	"triggerPattern": "(.+)\\.jsx$",
+    	"openPattern": "$1.css",
+    	"viewColumn": "beside"
+    }
+    ```
 
 3. Open implementation file when opening header:
 
-```json
-{
-	"triggerPattern": "(.+)\\.h$",
-	"openPattern": "$1.cpp",
-	"viewColumn": "beside"
-}
-```
+    ```json
+    {
+    	"triggerPattern": "(.+)\\.h$",
+    	"openPattern": "$1.cpp",
+    	"viewColumn": "beside"
+    }
+    ```
 
 4. Bidirectional rule for HTML and JS files:
 
-```json
-{
-  "triggerPattern": "(.+)\\.html$",
-  "openPattern": "$1.js",
-  "viewColumn": "beside-right",
-  "hasOppositeRule": true
-},
-{
-  "triggerPattern": "(.+)\\.js$",
-  "openPattern": "$1.html",
-  "viewColumn": "beside-left",
-  "hasOppositeRule": true
-}
-```
+    ```json
+    {
+      "triggerPattern": "(.+)\\.html$",
+      "openPattern": "$1.js",
+      "viewColumn": "beside-right",
+      "hasOppositeRule": true
+    },
+    {
+      "triggerPattern": "(.+)\\.js$",
+      "openPattern": "$1.html",
+      "viewColumn": "beside-left",
+      "hasOppositeRule": true
+    }
+    ```
 
 5. Open JavaScript file when HTML file is opened only if multiple tabs/columns are already open:
 
-```json
-{
-	"triggerPattern": "(.+)\\.html$",
-	"openPattern": "$1.js",
-	"viewColumn": "beside",
-	"onlyIfMultipleTabs": true
-}
-```
+    ```json
+    {
+    	"triggerPattern": "(.+)\\.html$",
+    	"openPattern": "$1.js",
+    	"viewColumn": "beside",
+    	"onlyIfMultipleTabs": true
+    }
+    ```
 
 6. Complete configuration example with bidirectional rules and multiple tabs condition:
 
+    ```json
+    {
+    	"autoOpenFiles.enabled": true,
+    	"autoOpenFiles.maxTab": 2,
+    	"autoOpenFiles.rules": [
+    		{
+    			"triggerPattern": "(.+)\\.html$",
+    			"openPattern": "$1.js",
+    			"viewColumn": "beside-right",
+    			"hasOppositeRule": true,
+    			"onlyIfMultipleTabs": true
+    		},
+    		{
+    			"triggerPattern": "(.+)\\.js$",
+    			"openPattern": "$1.html",
+    			"viewColumn": "beside-left",
+    			"hasOppositeRule": true,
+    			"onlyIfMultipleTabs": true
+    		},
+    		{
+    			"triggerPattern": "(.+)Test\\.cls$",
+    			"openPattern": "$1.cls",
+    			"viewColumn": "beside-left",
+    			"onlyIfMultipleTabs": true
+    		}
+    	]
+    }
+    ```
+
+## Development / Run Locally
+
+1. Clone  
+    ```bash
+    git clone https://github.com/guevaran/vscode-auto-open-files.git
+    cd vscode-auto-open-files
+    ```
+
+2. Install dependencies  
+    ```bash
+    npm install
+    ```
+
+3. Build (optional, VS Code does this on F5 if watch not running)  
+    ```bash
+    npm run compile
+    ```
+
+4. Start debug session  
+    - Open the folder in VS Code  
+    - Press F5 (launches an Extension Development Host)  
+    - Open a file matching a triggerPattern to verify behavior  
+
+5. Change code and auto-reload  
+    - Keep the debug window open  
+    - Edit files in `src/`  
+    - Use Command Palette: Developer: Reload Window if needed  
+
+6. Enable verbose logs  
+    - Run command: Auto Open Files: Show Logs  
+    - Adjust settings and observe output channel "Auto Open Files"
+
+7. Test packaging (optional)  
+    ```bash
+    npm install -g @vscode/vsce
+    vsce package
+    ```
+    Outputs a `.vsix` you can install via VSIX: Install from VSIX...
+
+8. Install locally without packaging  
+    - Use vsce to publish privately or just copy folder into your VS Code extensions dir (not recommended; use F5 for dev)
+
+### Useful Commands
+
+| Action | Command |
+| ------ | ------- |
+| Show logs | Auto Open Files: Show Logs |
+| Open settings JSON | Preferences: Open Settings (JSON) |
+| Reload window | Developer: Reload Window |
+
+### Quick Test Configuration Snippet
+
 ```json
-{
-	"autoOpenFiles.enabled": true,
-	"autoOpenFiles.maxTab": 2,
-	"autoOpenFiles.rules": [
-		{
-			"triggerPattern": "(.+)\\.html$",
-			"openPattern": "$1.js",
-			"viewColumn": "beside-right",
-			"hasOppositeRule": true,
-			"onlyIfMultipleTabs": true
-		},
-		{
-			"triggerPattern": "(.+)\\.js$",
-			"openPattern": "$1.html",
-			"viewColumn": "beside-left",
-			"hasOppositeRule": true,
-			"onlyIfMultipleTabs": true
-		},
-		{
-			"triggerPattern": "(.+)Test\\.cls$",
-			"openPattern": "$1.cls",
-			"viewColumn": "beside-left",
-			"onlyIfMultipleTabs": true
-		}
-	]
-}
+"autoOpenFiles.rules": [
+  { "triggerPattern": "(.+)\\.html$", "openPattern": "$1.js", "viewColumn": "beside" }
+]
 ```
 
 ## License
