@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deactivate = exports.activate = void 0;
+exports.activate = activate;
+exports.deactivate = deactivate;
 const vscode = require("vscode");
 const path = require("path");
 const fs_1 = require("fs");
@@ -46,7 +47,6 @@ function activate(context) {
     });
     context.subscriptions.push(showLogsCommand);
 }
-exports.activate = activate;
 // Helper function for logging to output channel
 function log(message) {
     if (outputChannel) {
@@ -109,7 +109,7 @@ async function openFile(filePath, viewColumn) {
         const relatedDocument = await vscode.workspace.openTextDocument(filePath);
         await vscode.window.showTextDocument(relatedDocument, {
             viewColumn: viewColumn,
-            preserveFocus: true,
+            preserveFocus: true, // Keep focus on original file
             preview: false, // Open as a permanent editor, not in preview mode
         });
         log(`Successfully open file: ${filePath} in column ${viewColumn}`);
@@ -258,5 +258,4 @@ async function handleFileOpen(document, rules, openedVisibleFiles, maxTab) {
     }
 }
 function deactivate() { }
-exports.deactivate = deactivate;
 //# sourceMappingURL=extension.js.map
