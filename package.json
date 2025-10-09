@@ -2,7 +2,10 @@
 	"name": "auto-open-files",
 	"displayName": "Auto Open Files",
 	"description": "Automatically open related files based on configurable patterns",
-	"version": "0.1.0",
+	"version": "1.0.0",
+	"publisher": "NicolasGUEVARA",
+	"license": "MIT",
+	"icon": "icon-1024x1024.png",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/guevaran/vscode-auto-open-files.git"
